@@ -17,8 +17,7 @@ const createUser = asyncHandler(async (req, res) => {
       success: true,
     });
   } else {
-    //user already
-
+    //user already exists
     res.json({
       msg: "User already exists",
       success: false,
@@ -31,6 +30,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   //check if user exists or not
   const findUser = await User.findOne({ email });
+  console.log(findUser);
   if (findUser && (await findUser.isPasswordMatched(password))) {
     const refreshToken = await generateRefreshToken(findUser?._id);
     const updateUser = await User.findByIdAndUpdate(
@@ -42,7 +42,7 @@ const loginUser = asyncHandler(async (req, res) => {
     );
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      maxAge: 86400 * 3,
+      maxAge: 86400,
     });
     res.json({
       id: findUser?._id,

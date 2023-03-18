@@ -3,16 +3,23 @@ const asyncHandler = require("express-async-handler");
 const { generateToken } = require("../config/jwtToken");
 const validateMongoDbId = require("../utils/validateMongoDbId");
 const { generateRefreshToken } = require("../config/refreshToken");
-// const { findByIdAndUpdate } = require("../models/userModel");
+const crypto = require("crypto");
 const { jwt } = require("jsonwebtoken");
 const { validate } = require("../models/userModel");
+const bcrypt = require("bcrypt");
+const sendMail = require("./emailCtrl");
 
 const createUser = asyncHandler(async (req, res) => {
   const email = req.body.email;
   const findUser = await User.findOne({ email });
   if (!findUser) {
     //create a new user
-    const newUser = await User.create(req.body);
+    const salt = bcrypt.genSaltSync(10);
+    const newUser = await User(req.body);
+    newUser.password = bcrypt.hashSync(req.body.password, salt);
+
+    await newUser.save();
+
     res.json({
       message: "User has been created successfully",
       success: true,
@@ -191,11 +198,10 @@ const unBlockUser = asyncHandler(async (req, res) => {
 const updatePassword = asyncHandler(async (req, res) => {
   const { uuid } = req.user;
 
-  console.log(req.user);
-  const password = req.body;
-  validateMongoDbId(uuid);
+  const { password } = req.body;
+  validateMongoDbId(req.user, { uuid: uuid });
 
-  const user = await User.findOne(uuid);
+  const user = await User.findOne({ uuid: uuid });
 
   if (password) {
     user.password = password;
@@ -205,6 +211,56 @@ const updatePassword = asyncHandler(async (req, res) => {
     res.send({ message: user });
   }
   return;
+});
+
+const forgotPasswordToken = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) throw new Error("User is not registered");
+  try {
+    // create a token and expiry date
+    const token = crypto.randomBytes(32).toString("hex");
+    user.passwordResetToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+    user.passwordResetExpires = Date.now() + 30 * 60 * 1000;
+
+    await user.save();
+
+    const resetUrl = `<a href="http://localhost:${process.env.PORT}/api/user/resetPassword/${token}">Click here</a>`;
+    const data = {
+      to: `${user.firstname} ${email}`,
+      subject: "Password Reset",
+      text: "Hey user",
+      html: resetUrl,
+    };
+    sendMail(data);
+    res.json(resetUrl);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  const { token } = req.params;
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gte: Date.now() },
+  });
+
+  if (!user) throw new Error("Token has expired, Please try again later");
+
+  //if user returns true
+  user.password = bcrypt.hashSync(password, bcrypt.genSaltSync(10));
+  user.passwordResetExpires = undefined;
+  user.passwordResetToken = undefined;
+
+  await user.save();
+
+  res.send("Password has been reset successfully");
 });
 
 module.exports = {
@@ -219,4 +275,6 @@ module.exports = {
   handleRefreshToken,
   logout,
   updatePassword,
+  forgotPasswordToken,
+  resetPassword,
 };

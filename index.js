@@ -16,14 +16,14 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-//API Middlewares
-app.use("/api/user", authRouter);
-app.use("/api/product", productRouter);
-
 app.get("/", (req, res) => {
   res.status(200).send({ success: true, message: "Welcome to E-COMMERCE" });
   return;
 });
+
+//API Middlewares
+app.use("/api/user", authRouter);
+app.use("/api/product", productRouter);
 
 //Error Handlers
 app.use(notFound);

@@ -5,7 +5,7 @@ const validateMongoDbId = require("../utils/validateMongoDbId");
 const { generateRefreshToken } = require("../config/refreshToken");
 const crypto = require("crypto");
 const { jwt } = require("jsonwebtoken");
-const { validate } = require("../models/userModel");
+const { newUser } = require("../utils/validateUser");
 const bcrypt = require("bcrypt");
 const sendMail = require("./emailCtrl");
 
@@ -19,26 +19,30 @@ const tryHard = async (req, res) => {
 };
 
 const createUser = asyncHandler(async (req, res) => {
-  const email = req.body.email;
-  const findUser = await User.findOne({ email });
-  if (!findUser) {
-    //create a new user
-    const salt = bcrypt.genSaltSync(10);
-    const newUser = await User(req.body);
-    newUser.password = bcrypt.hashSync(req.body.password, salt);
+  const { error, value } = newUser(req.body);
 
-    await newUser.save();
+  if (error) {
+    res.status(402).send({ success: false, error: error.details[0].message });
+    return;
+  }
+  const { email } = value;
 
-    res.json({
-      message: "User has been created successfully",
-      success: true,
-    });
-  } else {
-    //user already exists
-    res.json({
-      msg: "User already exists",
-      success: false,
-    });
+  try {
+    const findUser = await User.findOne({ email });
+
+    if (findUser) {
+      res
+        .status(404)
+        .send({ success: false, message: "email is registered already" });
+      return;
+    }
+    await User(value).save();
+
+    res.status(200).send({ succes: true, message: "user is created " });
+    return;
+  } catch (error) {
+    res.status(400).send({ success: false, error: error.mesaage });
+    return;
   }
 });
 

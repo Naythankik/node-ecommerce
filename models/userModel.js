@@ -1,7 +1,6 @@
 const mongoose = require("mongoose"); // Erase if already required
 const bcrypt = require("bcrypt");
 const uuid = require("uuid");
-const crypto = require("crypto");
 
 // Declare the Schema of the Mongo model
 var userSchema = new mongoose.Schema(
@@ -23,7 +22,7 @@ var userSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    mobile: {
+    telephone: {
       type: String,
       required: true,
       unique: true,
@@ -67,6 +66,17 @@ var userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+userSchema.pre("save", function (next) {
+  if (!this.isModified("password")) {
+    next();
+    return;
+  }
+  const salt = bcrypt.genSaltSync(10);
+  this.password = bcrypt.hashSync(this.password, salt);
+  next();
+  return;
+});
 
 userSchema.methods.isPasswordMatched = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);

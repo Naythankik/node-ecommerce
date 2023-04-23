@@ -20,6 +20,11 @@ app.use(cookieParser());
 app.use("/api/user", authRouter);
 app.use("/api/product", productRouter);
 
+app.get("/", (req, res) => {
+  res.status(200).send({ success: true, message: "Welcome to E-COMMERCE" });
+  return;
+});
+
 //Error Handlers
 app.use(notFound);
 app.use(errorHandler);

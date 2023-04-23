@@ -9,6 +9,15 @@ const { validate } = require("../models/userModel");
 const bcrypt = require("bcrypt");
 const sendMail = require("./emailCtrl");
 
+const tryHard = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    console.log(user);
+  } catch (error) {
+    throw new Error(error);
+  }
+};
+
 const createUser = asyncHandler(async (req, res) => {
   const email = req.body.email;
   const findUser = await User.findOne({ email });
@@ -38,7 +47,6 @@ const loginUser = asyncHandler(async (req, res) => {
 
   //check if user exists or not
   const findUser = await User.findOne({ email });
-  console.log(findUser);
   if (findUser && (await findUser.isPasswordMatched(password))) {
     const refreshToken = await generateRefreshToken(findUser?._id);
     const updateUser = await User.findByIdAndUpdate(
@@ -67,7 +75,6 @@ const loginUser = asyncHandler(async (req, res) => {
 
 const logout = asyncHandler(async (req, res) => {
   console.log(req.cookies);
-  return;
   const cookie = req.cookies;
 
   if (!cookie?.refreshToken) throw new Error("No refresh token in the cookies");
@@ -245,6 +252,8 @@ const forgotPasswordToken = asyncHandler(async (req, res) => {
 const resetPassword = asyncHandler(async (req, res) => {
   const { password } = req.body;
   const { token } = req.params;
+
+  //create a token to store the session
   const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
   const user = await User.findOne({
     passwordResetToken: hashedToken,
@@ -277,4 +286,5 @@ module.exports = {
   updatePassword,
   forgotPasswordToken,
   resetPassword,
+  tryHard,
 };
